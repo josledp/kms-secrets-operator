@@ -1,0 +1,33 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    name: kms-secrets
+  name: kms-secrets
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: kms-secrets
+  template:
+    metadata:
+      annotations:
+        iam.amazonaws.com/role: "<kube2iam/kiam AWS Role>"
+      labels:
+        name: kms-secrets
+    spec:
+      serviceAccount: kms-secrets-operator
+      containers:
+      - image: quay.io/josledp/kms-secrets-operator:0.0.1
+        name: kms-secrets
+        imagePullPolicy: Always
+        command:
+        - kms-secrets
+        env:
+        - name: OPERATOR_NAME
+          value: kms-secrets
+        ports:
+        - containerPort: 60000
+          name: metrics
+          protocol: TCP

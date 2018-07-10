@@ -1,0 +1,9 @@
+apiVersion: "takiones.com/v1alpha1"
+kind: "KmsSecret"
+metadata:
+  name: "example"
+  namespace: default
+spec:
+  data:
+    mysql_password: "AQICAHjDullapwGBpxMQHP5/3xsJBnkIKiX8awcZHjuCNAv/qgFNhLcr1XrK3XXThoL60p2cAAAAZjBkBgkqhkiG9w0BBwagVzBVAgEAMFAGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMW0fnTjQ1zXQ/NwFXAgEQgCNQH4hqLvcGCmB4aoMbkb3rv0+yiLGLT8NXsWV4QFWrfHlj1g=="
+    mysql_username: "AQICAHjDullapwGBpxMQHP5/3xsJBnkIKiX8awcZHjuCNAv/qgFNhLcr1XrK3XXThoL60p2cAAAAZjBkBgkqhkiG9w0BBwagVzBVAgEAMFAGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMW0fnTjQ1zXQ/NwFXAgEQgCNQH4hqLvcGCmB4aoMbkb3rv0+yiLGLT8NXsWV4QFWrfHlj1g=="

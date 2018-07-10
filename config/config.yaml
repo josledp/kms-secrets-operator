@@ -1,0 +1,3 @@
+apiVersion: takiones.com/v1alpha1
+kind: KmsSecret
+projectName: kms-secrets

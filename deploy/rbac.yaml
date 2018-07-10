@@ -1,0 +1,44 @@
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: kms-secrets-operator
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kms-secrets
+rules:
+- apiGroups:
+  - takiones.com
+  resources:
+  - "*"
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - "create"
+---
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1beta1
+metadata:
+  name: kms-secrets
+subjects:
+- kind: ServiceAccount
+  name: kms-secrets-operator
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: kms-secrets
+  apiGroup: rbac.authorization.k8s.io
