@@ -9,12 +9,16 @@ import (
 
 // KmsSecretSpec defines the desired state of KmsSecret
 type KmsSecretSpec struct {
+	Data map[string][]byte `json:"data"`
+
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 }
 
 // KmsSecretStatus defines the observed state of KmsSecret
 type KmsSecretStatus struct {
+	Created                 bool  `json:"created"`
+	LastModificationApplied int64 `json:"lastModificatonApplied"`
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 }

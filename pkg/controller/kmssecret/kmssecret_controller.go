@@ -3,6 +3,10 @@ package kmssecret
 import (
 	"context"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/kms"
+
 	takionesv1alpha1 "github.com/josledp/kms-secrets-operator/pkg/apis/takiones/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,7 +38,13 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileKmsSecret{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	kmsSvc := kms.New(session.New(), aws.NewConfig().WithRegion("us-east-1"))
+
+	return &ReconcileKmsSecret{
+		client: mgr.GetClient(),
+		scheme: mgr.GetScheme(),
+		kmsSvc: kmsSvc,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -53,7 +63,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner KmsSecret
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &takionesv1alpha1.KmsSecret{},
 	})
@@ -72,6 +82,7 @@ type ReconcileKmsSecret struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	kmsSvc *kms.KMS
 }
 
 // Reconcile reads that state of the cluster for a KmsSecret object and makes changes based on the state read
@@ -99,20 +110,23 @@ func (r *ReconcileKmsSecret) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	secret, err := r.newSecretForCR(instance)
+
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Set KmsSecret instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, secret, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	found := &corev1.Secret{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new Secret", "Secret.Namespace", secret.Namespace, "Secret.Name", secret.Name)
+		err = r.client.Create(context.TODO(), secret)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -124,29 +138,40 @@ func (r *ReconcileKmsSecret) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	reqLogger.Info("Skip reconcile: Secret already exists", "Secret.Namespace", found.Namespace, "Secret.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *takionesv1alpha1.KmsSecret) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func (r *ReconcileKmsSecret) newSecretForCR(cr *takionesv1alpha1.KmsSecret) (*corev1.Secret, error) {
+	secret := getSecretBase(cr)
+	data := make(map[string][]byte)
+
+	for k, v := range cr.Spec.Data {
+		input := &kms.DecryptInput{
+			CiphertextBlob: v,
+		}
+		output, err := r.kmsSvc.Decrypt(input)
+		if err != nil {
+			return nil, err
+		}
+		data[k] = output.Plaintext
 	}
-	return &corev1.Pod{
+	secret.Data = data
+
+	return secret, nil
+}
+
+func getSecretBase(cr *takionesv1alpha1.KmsSecret) *corev1.Secret {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
+			Name:      cr.ObjectMeta.Name,
+			Namespace: cr.ObjectMeta.Namespace,
+			Labels:    cr.ObjectMeta.Labels,
 		},
 	}
+	return secret
 }
